@@ -52,15 +52,16 @@ public class CheckoutModel : PageModel
         {
             await SetBasketModelAsync();
 
-            if (!ModelState.IsValid)
-            {
-                return BadRequest();
-            }
+            //if (!ModelState.IsValid)
+            //{
+            //    return BadRequest();
+            //}
 
             var updateModel = items.ToDictionary(b => b.Id.ToString(), b => b.Quantity);
             await _basketService.SetQuantities(BasketModel.Id, updateModel);
             await _orderService.CreateOrderAsync(BasketModel.Id, new Address("123 Main St.", "Kent", "OH", "United States", "44240"));
             await _basketService.DeleteBasketAsync(BasketModel.Id);
+            await _basketService.OrderItemsReserver(BasketModel.Items);
         }
         catch (EmptyBasketOnCheckoutException emptyBasketOnCheckoutException)
         {

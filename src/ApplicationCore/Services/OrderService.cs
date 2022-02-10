@@ -1,4 +1,8 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
@@ -6,6 +10,7 @@ using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Services;
 
@@ -15,16 +20,18 @@ public class OrderService : IOrderService
     private readonly IUriComposer _uriComposer;
     private readonly IRepository<Basket> _basketRepository;
     private readonly IRepository<CatalogItem> _itemRepository;
-
+    private readonly IHttpClientFactory _httpClientFactory;
     public OrderService(IRepository<Basket> basketRepository,
         IRepository<CatalogItem> itemRepository,
         IRepository<Order> orderRepository,
-        IUriComposer uriComposer)
+        IUriComposer uriComposer,
+        IHttpClientFactory httpClientFactory)
     {
         _orderRepository = orderRepository;
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
@@ -49,5 +56,28 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+        await OrderDetails(items, shippingAddress);
+    }
+
+    private async Task OrderDetails(List<OrderItem> order, Address shippingAddress)
+    {
+        var obj = new
+        {
+            ShippingAddress = shippingAddress,
+            Items = order,
+            FinalPrice = order.Sum(x => x.Units * x.UnitPrice)
+        };
+        var itemJson = new StringContent(
+        JsonSerializer.Serialize(obj),
+        Encoding.UTF8,
+        Application.Json); // using static System.Net.Mime.MediaTypeNames;
+        var httpClient = _httpClientFactory.CreateClient();
+        var httpResponseMessage = await httpClient.PostAsync("https://eshopazfunctionapp.azurewebsites.net/api/DeliveryOrderProcess?code=WO0bXvZXgZqAYpQ6GZLbm1z5eBuKbQiOvLFAqpb7DIeoSpak6BZiFA==", itemJson);
+
+        if (httpResponseMessage.IsSuccessStatusCode)
+        {
+            using var contentStream =
+                await httpResponseMessage.Content.ReadAsStreamAsync();
+        }
     }
 }

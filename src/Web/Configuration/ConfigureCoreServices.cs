@@ -14,6 +14,7 @@ public static class ConfigureCoreServices
     public static IServiceCollection AddCoreServices(this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddHttpClient();
         services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
         services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 
